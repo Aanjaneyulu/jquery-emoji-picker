@@ -8,10 +8,10 @@
         fadeTime: 100,
         iconColor: 'black',
         iconBackgroundColor: '#eee',
-        recentCount: 36,
-        emojiSet: 'apple',
+        recentCount: 20,
         container: 'body',
-        button: true
+        button: true,
+        dailyEmoji: false
       };
 
   var MIN_WIDTH = 280,
@@ -20,15 +20,15 @@
       MAX_HEIGHT = 350,
       MAX_ICON_HEIGHT = 50;
 
-  var categories = [
+  var groups = [
     { name: 'people', label: 'People' },
-    { name: 'nature', label: 'Nature' },
-    { name: 'food', label: 'Food' },
-    { name: 'activity', label: 'Activities' },
+    { name: 'nature', label: 'Nature and Animals' },
+    { name: 'food', label: 'Food and Drinks' },
+    { name: 'activities', label: 'Activities' },
     { name: 'travel', label: 'Travel & Places' },
-    { name: 'object', label: 'Objects' },
-    { name: 'symbol', label: 'Symbols' },
-    { name: 'flag', label: 'Flags' }
+    { name: 'objects', label: 'Objects' },
+    { name: 'symbols', label: 'Symbols' },
+    { name: 'flags', label: 'Flags' }
   ];
 
   function EmojiPicker( element, options ) {
@@ -64,12 +64,7 @@
       this.settings.position = defaults.position; //current default
     }
 
-    // Do not enable if on mobile device (emojis already present)
-    if(!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
-      this.init();
-    } else {
-      this.isMobile = true;
-    }
+    this.init();
 
   }
 
@@ -103,8 +98,9 @@
           .height(iconHeight)
           .width(iconHeight)
           .addClass(this.settings.iconColor)
-          .css('backgroundColor', this.settings.iconBackgroundColor);
-          this.$wrapper.append( this.$icon );
+          .css('right', -iconHeight);
+          //.css('backgroundColor', this.settings.iconBackgroundColor)
+        this.$wrapper.append( this.$icon );
       }
 
     },
@@ -152,7 +148,7 @@
       }
 
       // Click event for emoji
-      this.$picker.on('click', 'em', $.proxy(this.emojiClicked, this));
+      this.$picker.on('click', 'section em', $.proxy(this.emojiClicked, this));
 
       // Hover event for emoji
       this.$picker.on('mouseover', 'em', $.proxy(this.emojiMouseover, this) );
@@ -230,7 +226,7 @@
     },
 
     show: function() {
-      this.$el.focus();
+      //this.$el.focus();
       this.updatePosition();
       this.$picker.show(this.settings.fadeTime, 'linear', function() {
         this.active = true;
@@ -248,14 +244,15 @@
       if ( this.$picker.is(':hidden') ) {
         this.show();
         if( this.$picker.find('.search input').length > 0 ) {
-          this.$picker.find('.search input').focus();
+         // this.$picker.find('.search input').focus();
         }
       } else {
         this.hide();
       }
     },
 
-    emojiClicked: function(e) { var clickTarget = $(e.target);
+    emojiClicked: function(e) { 
+      var clickTarget = $(e.target);
       var emojiSpan;
       if (clickTarget.is('em')) {
         emojiSpan = clickTarget.find('span');
@@ -263,12 +260,13 @@
         emojiSpan = clickTarget.parent().find('.emoji');
       }
 
-      var emojiShortcode = emojiSpan.attr('class').split('emoji-')[1];
-      var emojiUnicode = toUnicode(findEmoji(emojiShortcode).unicode[defaults.emojiSet]);
+      var emojiId = emojiSpan.attr('class').split('emoji-')[1];
+      var emojiCharacter = emojiSpan.text();
 
-      insertAtCaret(this.element, emojiUnicode);
-      addToLocalStorage(emojiShortcode);
-      updateRecentlyUsed(emojiShortcode);
+      $(this.element).focus();
+      insertEmoji(this.element, emojiCharacter);
+      addToLocalStorage(emojiId, emojiCharacter);
+      updateRecentlyUsed();
 
       // For anyone who is relying on the keyup event
       $(this.element).trigger("keyup");
@@ -280,10 +278,18 @@
     },
 
     emojiMouseover: function(e) {
-      var emojiShortcode = $(e.target).parent().find('.emoji').attr('class').split('emoji-')[1];
-      var $shortcode = $(e.target).parents('.emojiPicker').find('.shortcode');
+      var clickTarget = $(e.target);
+      var emojiSpan;
+      if (clickTarget.is('em')) {
+        emojiSpan = clickTarget.find('span');
+      } else {
+        emojiSpan = clickTarget.parent().find('.emoji');
+      }
+      var emojiId = emojiSpan.attr('class').split('emoji-')[1];
+      var emojiCharacter = emojiSpan.text();
+      var $shortcode = emojiSpan.parents('.emojiPicker').find('.shortcode');
       $shortcode.find('.random').hide();
-      $shortcode.find('.info').show().html('<div class="emoji emoji-' + emojiShortcode + '"></div><em>' + emojiShortcode + '</em>');
+      $shortcode.find('.info').show().html('<div class="emoji emoji-' + emojiId + '">' + emojiCharacter + '</div><em>' + emojiId.replace(/^:|:$/g,"").replace(/_+/g," ") + '</em>');
     },
 
     emojiMouseout: function(e) {
@@ -334,18 +340,18 @@
         section = $(e.target).attr('data-tab');
       }
 
-      var categoryTitle = '';
-      for (var i = 0; i < categories.length; i++) {
-        if (categories[i].name == section) { categoryTitle = categories[i].label; }
+      var groupTitle = '';
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].name == section) { groupTitle = groups[i].label; }
       }
-      if (categoryTitle == '') { categoryTitle = 'Recently Used'; }
+      if (groupTitle == '') { groupTitle = 'Recently Used'; }
 
-      var categoryCount = $('section.' + section).attr('data-count');
-      var categoryHtml = '<em class="tabTitle">' + categoryTitle + ' <span class="count">(' + categoryCount + ' emojis)</span></em>';
+      var groupCount = $('section.' + section).attr('data-count');
+      var groupHtml = '<em class="tabTitle">' + groupTitle + ' <span class="count">(' + groupCount + ' emojis)</span></em>';
 
       var $shortcode = $(e.target).parents('.emojiPicker').find('.shortcode');
       $shortcode.find('.random').hide();
-      $shortcode.find('.info').show().html(categoryHtml);
+      $shortcode.find('.info').show().html(groupHtml);
     },
 
     emojiScroll: function(e) {
@@ -383,12 +389,14 @@
       var sections = $(e.target).parents('.sections').find('section');
 
       // Clear if X is clicked within input
-      if (searchTerm == '') {
+      var searchTermToBeUsed = searchTerm.trim().toLowerCase().replace(/\s+/g,"_");
+      if (searchTermToBeUsed == '') {
         sections.show();
         searchEmojiWrap.hide();
+        return;
       }
-
-      if (searchTerm.length > 0) {
+      
+      if (searchTermToBeUsed.length > 0) {
         sections.hide();
         searchEmojis.show();
         searchEmojiWrap.show();
@@ -397,9 +405,9 @@
         searchEmojiWrap.find('em').remove();
 
         $.each($.fn.emojiPicker.emojis, function(i, emoji) {
-          var shortcode = emoji.shortcode;
-          if ( shortcode.indexOf(searchTerm) > -1 ) {
-            results.push('<em><div class="emoji emoji-' + shortcode + '"></div></em>');
+          var emojiId = emoji.id;
+          if ( emojiId.indexOf(searchTermToBeUsed) > -1 ) {
+            results.push('<em><span class="emoji emoji-' + emojiId + '">' + emoji.symbol+ '</span></em>');
           }
         });
         searchEmojiWrap.append(results.join(''));
@@ -449,9 +457,9 @@
 
     // Re-Sort Emoji table
     $.each($.fn.emojiPicker.emojis, function(i, emoji) {
-      var category = aliases[ emoji.category ] || emoji.category;
-      items[ category ] = items[ category ] || [];
-      items[ category ].push( emoji );
+      var group = aliases[ emoji.group ] || emoji.group;
+      items[ group ] = items[ group ] || [];
+      items[ group ].push( emoji );
     });
 
     nodes.push('<div class="emojiPicker">');
@@ -462,55 +470,60 @@
       nodes.push('<div class="tab active" data-tab="recent"><div class="emoji emoji-tab-recent"></div></div>');
     }
 
-    // Emoji category tabs
-    var categories_length = categories.length;
-    for (var i = 0; i < categories_length; i++) {
+    // Emoji group tabs
+    var groups_length = groups.length;
+    for (var i = 0; i < groups_length; i++) {
       nodes.push('<div class="tab' +
       ( !localStorageSupport && i == 0 ? ' active' : '' ) +
       '" data-tab="' +
-      categories[i].name +
+      groups[i].name +
       '"><div class="emoji emoji-tab-' +
-      categories[i].name +
+      groups[i].name +
       '"></div></div>');
     }
     nodes.push('</nav>');
     nodes.push('<div class="sections">');
 
     // Search
-    nodes.push('<section class="search">');
-    nodes.push('<input type="search" placeholder="Search...">');
-    nodes.push('<div class="wrap" style="display:none;"><h1>Search Results</h1></div>');
-    nodes.push('</section>');
+     nodes.push('<section class="search">');
+     nodes.push('<input type="search" placeholder="Search...">');
+     nodes.push('<div class="wrap" style="display:none;"><h1>Search Results</h1></div>');
+     nodes.push('</section>');
 
     // Recent Section, if localstorage support
     if (localStorageSupport) {
-      var recentlyUsedEmojis = [];
+      var recentlyUsedEmojiIds = [];
+      var recentlyUsedEmojiSymbols = [];
       var recentlyUsedCount = 0;
       var displayRecentlyUsed = ' style="display:none;"';
 
-      if (localStorage.emojis) {
-        recentlyUsedEmojis = JSON.parse(localStorage.emojis);
-        recentlyUsedCount = recentlyUsedEmojis.length;
+      if (localStorage.emojiIds && localStorage.emojiSymbols) {
+        recentlyUsedEmojiIds = JSON.parse(localStorage.emojiIds);
+        recentlyUsedEmojiSymbols = JSON.parse(localStorage.emojiSymbols)
+        recentlyUsedCount = recentlyUsedEmojiIds.length;
         displayRecentlyUsed = ' style="display:block;"';
+      } else{
+        localStorage.emojiIds = [];
+        localStorage.emojiSymbols = [];
       }
 
-      nodes.push('<section class="recent" data-count="' + recentlyUsedEmojis.length + '"' + displayRecentlyUsed + '>');
+      nodes.push('<section class="recent" data-count="' + recentlyUsedEmojiIds.length + '"' + displayRecentlyUsed + '>');
       nodes.push('<h1>Recently Used</h1><div class="wrap">');
 
-      for (var i = recentlyUsedEmojis.length-1; i > -1 ; i--) {
-        nodes.push('<em><span class="emoji emoji-' + recentlyUsedEmojis[i] + '"></span></em>');
+      for (var i = recentlyUsedEmojiIds.length-1; i > -1 ; i--) {
+        nodes.push('<em><span class="emoji emoji-' + recentlyUsedEmojiIds[i] + '">' + recentlyUsedEmojiSymbols[i] + '</span></em>');
       }
       nodes.push('</div></section>');
     }
 
     // Emoji sections
-    for (var i = 0; i < categories_length; i++) {
-      var category_length = items[ categories[i].name ].length;
-      nodes.push('<section class="' + categories[i].name + '" data-count="' + category_length + '">');
-      nodes.push('<h1>' + categories[i].label + '</h1><div class="wrap">');
-      for (var j = 0; j < category_length; j++) {
-        var emoji = items[ categories[i].name ][ j ];
-        nodes.push('<em><span class="emoji emoji-' + emoji.shortcode + '"></span></em>');
+    for (var i = 0; i < groups_length; i++) {
+      var group_length = items[ groups[i].name ].length;
+      nodes.push('<section class="' + groups[i].name + '" data-count="' + group_length + '">');
+      nodes.push('<h1>' + groups[i].label + '</h1><div class="wrap">');
+      for (var j = 0; j < group_length; j++) {
+        var emoji = items[ groups[i].name ][ j ];
+        nodes.push('<em><span class="emoji emoji-' + emoji.id + '">'+emoji.symbol+'</span></em>');
       }
       nodes.push('</div></section>');
     }
@@ -518,9 +531,9 @@
 
     // Shortcode section
     nodes.push('<div class="shortcode"><span class="random">');
-    nodes.push('<em class="tabTitle">' + generateEmojiOfDay() + '</em>');
+    if(defaults.dailyEmoji)
+      nodes.push('<em class="tabTitle">' + generateEmojiOfDay() + '</em>');
     nodes.push('</span><span class="info"></span></div>');
-
     nodes.push('</div>');
     return nodes.join("\n");
   }
@@ -529,17 +542,50 @@
     var emojis = $.fn.emojiPicker.emojis;
     var i = Math.floor(Math.random() * (364 - 0) + 0);
     var emoji = emojis[i];
-    return 'Daily Emoji: <span class="eod"><span class="emoji emoji-' + emoji.name + '"></span> <span class="emojiName">' + emoji.name + '</span></span>';
+    return 'Random Emoji: <span class="eod"><span class="emoji emoji-' + emoji.id + '"></span> <span class="emojiName">' + emoji.symbol + '</span></span>';
   }
 
-  function findEmoji(emojiShortcode) {
-    var emojis = $.fn.emojiPicker.emojis;
-    for (var i = 0; i < emojis.length; i++) {
-      if (emojis[i].shortcode == emojiShortcode) {
-        return emojis[i];
+  function insertEmoji(inputField, emojiCharacter){
+    if(inputField.isContentEditable)
+      pasteHtmlAtCaret(emojiCharacter);
+    else
+      insertAtCaret(inputField, emojiCharacter);
+  }
+
+  function pasteHtmlAtCaret(html){
+      var sel, range;
+      if (window.getSelection) {
+          // IE9 and non-IE
+          sel = window.getSelection();
+          if (sel.getRangeAt && sel.rangeCount) {
+              range = sel.getRangeAt(0);
+              range.deleteContents();
+
+              // Range.createContextualFragment() would be useful here but is
+              // non-standard and not supported in all browsers (IE9, for one)
+              var el = document.createElement("div");
+              el.innerHTML = html;
+              var frag = document.createDocumentFragment(), node, lastNode;
+              while ( (node = el.firstChild) ) {
+                  lastNode = frag.appendChild(node);
+              }
+              range.insertNode(frag);
+              delete(el);
+              
+              // Preserve the selection
+              if (lastNode) {
+                  range = range.cloneRange();
+                  range.setStartAfter(lastNode);
+                  range.collapse(true);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+              }
+          }
+      } else if (document.selection && document.selection.type != "Control") {
+          // IE < 9
+          document.selection.createRange().pasteHTML(html);
       }
     }
-  }
 
   function insertAtCaret(inputField, myValue) {
     if (document.selection) {
@@ -565,51 +611,51 @@
     }
   }
 
-  function toUnicode(code) {
-    var codes = code.split('-').map(function(value, index) {
-      return parseInt(value, 16);
-    });
-    return String.fromCodePoint.apply(null, codes);
-  }
-
-  function addToLocalStorage(emoji) {
-    var recentlyUsedEmojis = [];
-    if (localStorage.emojis) {
-      recentlyUsedEmojis = JSON.parse(localStorage.emojis);
+  function addToLocalStorage(emojiId, emojiCharacter) {
+    var recentlyUsedEmojiIds = [];
+    var recentlyUsedEmojiSymbols = [];
+    if (localStorage.emojiIds && localStorage.emojiSymbols) {
+      recentlyUsedEmojiIds = JSON.parse(localStorage.emojiIds);
+      recentlyUsedEmojiSymbols = JSON.parse(localStorage.emojiSymbols);
     }
 
     // If already in recently used, move to front
-    var index = recentlyUsedEmojis.indexOf(emoji);
+    var index = recentlyUsedEmojiIds.indexOf(emojiId);
     if (index > -1) {
-      recentlyUsedEmojis.splice(index, 1);
+      recentlyUsedEmojiIds.splice(index, 1);
+      recentlyUsedEmojiSymbols.splice(index,1);
     }
-    recentlyUsedEmojis.push(emoji);
+    recentlyUsedEmojiIds.push(emojiId);
+    recentlyUsedEmojiSymbols.push(emojiCharacter)
 
-    if (recentlyUsedEmojis.length > defaults.recentCount) {
-      recentlyUsedEmojis.shift();
+    if (recentlyUsedEmojiIds.length > defaults.recentCount) {
+      recentlyUsedEmojiIds.shift();
+      recentlyUsedEmojiSymbols.shift();
     }
 
-    localStorage.emojis = JSON.stringify(recentlyUsedEmojis);
+    localStorage.emojiIds = JSON.stringify(recentlyUsedEmojiIds);
+    localStorage.emojiSymbols = JSON.stringify(recentlyUsedEmojiSymbols);
   }
 
-  function updateRecentlyUsed(emoji) {
-    var recentlyUsedEmojis = JSON.parse(localStorage.emojis);
+  function updateRecentlyUsed() {
+    var recentlyUsedEmojiIds = JSON.parse(localStorage.emojiIds);
+    var recentlyUsedEmojiSymbols = JSON.parse(localStorage.emojiSymbols);
     var emojis = [];
     var recent = $('section.recent');
 
-    for (var i = recentlyUsedEmojis.length-1; i >= 0; i--) {
-      emojis.push('<em><span class="emoji emoji-' + recentlyUsedEmojis[i] + '"></span></em>');
+    for (var i = recentlyUsedEmojiIds.length-1; i >= 0; i--) {
+      emojis.push('<em><span class="emoji emoji-' + recentlyUsedEmojiIds[i] + '">'+ recentlyUsedEmojiSymbols[i] +'</span></em>');
     }
 
     // Fix height as emojis are added
     var prevHeight = recent.outerHeight();
+    $('section.recent').attr("data-count", emojis.length);
     $('section.recent .wrap').html(emojis.join(''));
     var currentScrollTop = $('.sections').scrollTop();
     var newHeight = recent.outerHeight();
     var newScrollToHeight = 0;
 
     if (!$('section.recent').is(':visible')) {
-      recent.show();
       newScrollToHeight = newHeight;
     } else if (prevHeight != newHeight) {
       newScrollToHeight = newHeight - prevHeight;
@@ -619,19 +665,4 @@
       scrollTop: currentScrollTop + newScrollToHeight
     }, 0);
   }
-
-  if (!String.fromCodePoint) {
-    // ES6 Unicode Shims 0.1 , © 2012 Steven Levithan http://slevithan.com/ , MIT License
-    String.fromCodePoint = function fromCodePoint () {
-        var chars = [], point, offset, units, i;
-        for (i = 0; i < arguments.length; ++i) {
-            point = arguments[i];
-            offset = point - 0x10000;
-            units = point > 0xFFFF ? [0xD800 + (offset >> 10), 0xDC00 + (offset & 0x3FF)] : [point];
-            chars.push(String.fromCharCode.apply(null, units));
-        }
-        return chars.join("");
-    }
-  }
-
 })(jQuery);
